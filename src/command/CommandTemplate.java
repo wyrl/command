@@ -1,6 +1,6 @@
 package command;
 public abstract class CommandTemplate
-{	
+{
 	private String parentName;
 	CommandCallback callback;
 	ErrorCallback error_callback;
@@ -9,7 +9,9 @@ public abstract class CommandTemplate
 	protected String error;
 	protected boolean is_error;
 	protected CommandType CurrentType;
-	private Object byWho;
+	private IRequestor requestor;
+	
+	private String commandString;
 
 	public CommandTemplate(String parentName, CommandType command_type)
 	{
@@ -18,26 +20,22 @@ public abstract class CommandTemplate
 		is_error = false;
 		output = "";
 		error = "";
-		byWho = null;
+		requestor = null;
 		CurrentType = null;
 	}
 	
 	public abstract void begin();
-	//public abstract void beforeCall(CommandType what_type);
 	public abstract void toSetCall(String attributeName, String value);
 	public abstract void toGetCall(String attributeName, String value);
 	public abstract CommandAttribute prepareAttributes();
 	public abstract void end(CommandType command_type);
 	public abstract void reset();
 	
-	public void setRequestBy(Object byWho){
-		this.byWho = byWho;
+	public void setRequestBy(IRequestor requestor){
+		this.requestor = requestor;
 	}
-	/*public void setRequestBy(IRequest request) {
-		
-	}*/
-	public Object getRequest() {
-		return this.byWho;
+	public IRequestor getRequestor() {
+		return this.requestor;
 	}
 	public String getParentName()
 	{
@@ -68,16 +66,24 @@ public abstract class CommandTemplate
 	
 	protected void appendOutput(String output){
 		if(this.output.equals(""))
-			this.output = String.valueOf(output);
+			this.output = output;
 		else
-			this.output += String.valueOf("\n" + output);
+			this.output += "\n" + output;
 	}
 	protected void writeOutput(String output) {
-		this.output += String.valueOf(output);
+		this.output += output;
 	}
 	protected void setErrorMessage(String msg) {
 		error = msg;
 		is_error = true;
+	}
+
+	public void setLastCommandString(String commandString) {
+		this.commandString = commandString;
+	}
+	
+	public String getLastCommandString() {
+		return commandString;
 	}
 	
 	public boolean isError()

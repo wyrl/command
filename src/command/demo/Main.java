@@ -10,9 +10,9 @@ public class Main {
 		Command cmd = new Command(new UnknownCommand() {
 
 			@Override
-			public void onUnknown(String data, Object byWho) {
+			public void onUnknown(String data, int code,Object byWho) {
 				// TODO Auto-generated method stub
-				System.out.println(data);
+				System.out.println(Command.MSG_REASON(code) + ": " + data);
 			}
 			
 		});
@@ -40,8 +40,8 @@ public class Main {
 		cmd.add(os);
 		
 		
-		cmd.call("@os /hostname /os-version /os-arch /os-name");
-		//cmd.call("-os hostname:'testme' os-version:'4.4.0-96-generic' os-arch:'amd64' os-name:'Linux'");
+		//cmd.call("@os /hostname /os-version /os-arch /os-name");
+		cmd.call("-os hostname:'' os-version:'4.4.0-96-generic' os-arch:'amd64' os-name:'Linux' /asdfasdf");
 	}
 
 }

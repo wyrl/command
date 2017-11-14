@@ -1,4 +1,4 @@
 package command;
 public interface UnknownCommand{
-	void onUnknown(String data, Object byWho);
+	void onUnknown(String data, int code, Object byWho);
 }

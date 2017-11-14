@@ -56,7 +56,7 @@ public class CommandServer {
 	private void do_read(){
 		
 		
-		int max_length = 1024;
+		int max_length = 10240;
 		byte [] data = new byte[max_length];
 		
 		int l;

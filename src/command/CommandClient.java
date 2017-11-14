@@ -2,6 +2,7 @@ package command;
 
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.util.Collection;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -21,7 +22,15 @@ public class CommandClient implements IRequestor {
 		this.cmd = cmd;
 		isConnected = false;
 		this.callback = callback;
+		setRequestorCollection(cmd.getCommandTemplateCollection());
 	}
+	
+	private void setRequestorCollection(Collection<CommandTemplate> values) {
+		for(CommandTemplate commandTemplate : values) {
+			commandTemplate.setRequestBy(this);
+		}
+	}
+	
 	
 	public void connect(String ip, int port) throws UnknownHostException, IOException{
 		if(!isConnected){
@@ -58,7 +67,7 @@ public class CommandClient implements IRequestor {
 			System.out.println("do read...");
 			while((l = in.read(data, 0, max_length)) > 0){
 				for(int i = 0; i < l; i++){
-					if((char)data[i] != ';')
+					if(data[i] != 0x003)
 						str.append((char)data[i]);
 					else{
 						cmd.call(str.toString(), this);
@@ -71,7 +80,7 @@ public class CommandClient implements IRequestor {
 			System.out.println("end do read...");
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
-			System.out.println("CommandClient@do_read(): " + e.getLocalizedMessage());
+			System.err.println("CommandClient@do_read(): " + e.getLocalizedMessage());
 		}
 		
 		if(isConnected)
@@ -101,6 +110,7 @@ public class CommandClient implements IRequestor {
 		
 		try {
 			out.write(d, 0, data.length());
+			out.write(0x003);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			System.out.println("CommandClient@send(): " + e.getMessage());

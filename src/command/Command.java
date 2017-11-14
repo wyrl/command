@@ -1,11 +1,17 @@
 package command;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Hashtable;
 import java.util.regex.*;
 import java.util.Iterator;
 
 public class Command //ArrayList<CommandTemplate>
 {	
+	public static final int CODE_NOTHING = 0;
+	public static final int CODE_DENY_SETTER = 1;
+	public static final int CODE_DENY_GETTER = 2;
+
+
 	private UnknownCommand unknownCommand;
 	private Pattern pat;
 	private Hashtable<String, CommandTemplate> parents;
@@ -16,12 +22,11 @@ public class Command //ArrayList<CommandTemplate>
 	
 	public Command(UnknownCommand unknownCommand){
 		this.unknownCommand = unknownCommand;
-		pat = Pattern.compile("([a-z-]+:\"\")|([a-z-]+:\".+?\")|([a-z-]+:'')|([a-z-]+:'.+?')|([a-z-]+:[\\S]+)|(/[a-z-]+)");
-		parents = new Hashtable<String, CommandTemplate>();
+		pat = Pattern.compile("[a-z-]+:\"\"|([a-z-]+:\"[\\S\\s]+?\\s\")|([a-z-]+:'')|([a-z-]+:'[\\S\\s]+?')|([a-z_-]+:[\\S]+)|(/[a-z-]+)");
+		parents = new Hashtable<>();
 	}
 	
 	public void add(CommandTemplate e) {
-		// TODO Auto-generated method stub
 		if(e.prepareAttributes() == null){
 			throw new IllegalStateException("the implement of CommandTemplate 'takeAttributes' method should have at least attribute.");
 		}
@@ -29,17 +34,15 @@ public class Command //ArrayList<CommandTemplate>
 			throw new IllegalStateException("'" + e.getParentName() + "(" + CommandTemplate.class.getSimpleName() + ")' has already been added.");
 		else
 			parents.put(e.getParentName(), e);
+		
+		
 	}
-	
-	public CommandTemplate getParentByName(String parentName)
-	{
-		return parents.get(parentName);
-	}
+
 	public void call(String strCommand)
 	{
 		call(strCommand, null);
 	}
-	public void call(String strCommand, Object byWho)
+	public void call(String strCommand, IRequestor byWho)
 	{
 		int startIndexPCommand = (strCommand.indexOf("-") & strCommand.indexOf("@"));
 		int endIndexPCommand = (strCommand.indexOf(" "));
@@ -51,25 +54,40 @@ public class Command //ArrayList<CommandTemplate>
         
 		if (startIndexPCommand != 0)
 		{
-			if (unknownCommand != null) unknownCommand.onUnknown(strCommand, byWho);
+            System.out.println("???");
+			if (unknownCommand != null)
+                unknownCommand.onUnknown(strCommand, CODE_NOTHING, byWho);
 			return;
 		}
 		String parentName = strParentCommand.length() > 1 ? strParentCommand.substring(1, strParentCommand.length()) : "";
 
-		CommandTemplate parent = (CommandTemplate)getParentByName(parentName);
+		CommandTemplate parent = getParentByName(parentName);
 		
-		if (parent == null
-			|| ((int)parent.getCommandType().toInt() & 1 << 0) != (int) CommandType.GETTER.toInt() && strParentCommand.indexOf("@") > -1
-			|| ((int)parent.getCommandType().toInt() & 1 << 1) != (int) CommandType.SETTER.toInt() && strParentCommand.indexOf("-") > -1)
-		{
-			if (unknownCommand != null) unknownCommand.onUnknown(strCommand, byWho);
+		if (parent == null) {
+            if (unknownCommand != null)
+                unknownCommand.onUnknown(strCommand, CODE_NOTHING, byWho);
 			return;
 		}
-		
+
+		if((parent.getCommandType().toInt() & 1 << 0) != CommandType.GETTER.toInt() &&
+				strParentCommand.indexOf("@") > -1) {
+			if (unknownCommand != null)
+				unknownCommand.onUnknown(strCommand, CODE_DENY_GETTER, byWho);
+			return;
+		}
+		if((parent.getCommandType().toInt() & 1 << 1) != CommandType.SETTER.toInt() &&
+                strParentCommand.indexOf("-") > -1) {
+            if (unknownCommand != null)
+                unknownCommand.onUnknown(strCommand, CODE_DENY_GETTER, byWho);
+            return;
+        }
+
+		parent.setLastCommandString(strCommand);
 		if (parent != null)
 		{
 			parent.CurrentType = CommandTypeByFirstChar(strParentCommand.charAt(0));
 			if (checkAttribute(parent, strChildCommand)){
+				parent.setRequestBy(byWho);
 				parent.begin();
 				Matcher mat = pat.matcher(strChildCommand);
 				while(mat.find())
@@ -93,10 +111,7 @@ public class Command //ArrayList<CommandTemplate>
 					else if (strParentCommand.indexOf("@") == 0)
 						parent.toGetCall(attr, val);
 				}
-				
-				parent.setRequestBy(byWho);
 				CommandCallback callback = parent.getCallback();
-				//parent.beforeCall(parent.CurrentType = CommandTypeByFirstChar(strParentCommand.charAt(0)));
 				parent.end(parent.CurrentType);
 				if (callback != null) 
 					callback.onCallBack(byWho, parent);
@@ -104,13 +119,18 @@ public class Command //ArrayList<CommandTemplate>
 			}
 		}
 	}
+
+	public CommandTemplate getParentByName(String parentName)
+	{
+		return parents.get(parentName);
+	}
 	
 	private boolean checkAttribute(CommandTemplate parent, String strChildCommand){
 		Matcher mat = pat.matcher(strChildCommand);
 		
 		CommandAttribute attributes = parent.prepareAttributes();
 		ErrorCallback error_callback = parent.getErrorCallback();
-		//CommandType pcommand_type = CommandTypeByFirstChar(parent.getParentName().charAt(0));
+
 		CommandType pcommand_type = parent.CurrentType;
 		if(attributes == null){
 			if(error_callback != null)
@@ -123,13 +143,10 @@ public class Command //ArrayList<CommandTemplate>
 			String child = mat.group();
 			int index = child.indexOf(':');
 			String attr = "";
-			String val = "";
 			
 			if (index > -1)
 			{
 				attr = child.substring(0, index);
-				val = child.substring((index + 1), child.length());
-				if (val.indexOf("'") == 0 && val.lastIndexOf("'") == val.length() - 1) val = val.substring(1, val.length() - 1);
 			}
 			else attr = child;
 			
@@ -175,5 +192,16 @@ public class Command //ArrayList<CommandTemplate>
 	public static String MSG_ERROR_UNKNOWN(String strCommand){
 		return String.format("Invalid Command: %s", strCommand);
 	}
-	
+	public static String MSG_REASON(int code){
+        System.out.println("Code: " + code);
+        if(code == CODE_DENY_SETTER)
+            return "Not allowed setter or within '-'";
+        else if(code == CODE_DENY_GETTER)
+            return "Not allowed getter or within '@'";
+        else
+            return "Unknown Command";
+    }
+	public Collection getCommandTemplateCollection() {
+		return parents.values();
+	}
 }
